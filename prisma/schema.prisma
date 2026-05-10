@@ -1,0 +1,772 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  SYSTEM_ADMIN
+  COMPANY_ADMIN
+  EXECUTIVE
+  GENERAL_AFFAIRS
+  ACCOUNTING
+  DEPARTMENT_MANAGER
+  SITE_MANAGER
+  SALES
+  VENDOR_ADMIN
+  VENDOR_WORKER
+  VIEWER
+}
+
+enum ProjectStatus {
+  INQUIRY
+  ESTIMATING
+  AWARDED
+  BEFORE_START
+  IN_PROGRESS
+  INSPECTION
+  COMPLETED_CONSTRUCTION
+  DELIVERED
+  BILLING
+  CLOSED
+  ON_HOLD
+  CANCELED
+}
+
+enum VendorTradeStatus {
+  ACTIVE
+  APPLYING
+  SUSPENDED
+  STOPPED
+  NEEDS_REVIEW
+}
+
+enum OrderStatus {
+  NOT_CREATED
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  SENT
+  WAITING_CONFIRMATION
+  CONFIRMATION_RECEIVED
+  CHANGED
+  CANCELED
+}
+
+enum InvoiceStatus {
+  UNCHECKED
+  CHECKING
+  RETURNED
+  PENDING_APPROVAL
+  APPROVED
+  SCHEDULED
+  PAID
+  ON_HOLD
+}
+
+enum AssessmentStatus {
+  NOT_INPUT
+  INPUTTING
+  SITE_CONFIRMED
+  DEPARTMENT_CONFIRMED
+  GENERAL_AFFAIRS_CONFIRMED
+  ACCOUNTING_CONFIRMED
+  RETURNED
+  CLOSED
+}
+
+enum DocumentStatus {
+  DRAFT
+  CHECKING
+  PENDING_APPROVAL
+  APPROVED
+  RETURNED
+  STORED
+}
+
+enum ApprovalStatus {
+  DRAFT
+  PENDING
+  APPROVED
+  RETURNED
+  CANCELED
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  WAITING_CONFIRMATION
+  RETURNED
+  DONE
+  ON_HOLD
+}
+
+model Company {
+  id                        String       @id @default(cuid())
+  name                      String
+  nameKana                  String?
+  postalCode                String?
+  address                   String?
+  phone                     String?
+  invoiceRegistrationNumber String?
+  createdAt                 DateTime     @default(now())
+  updatedAt                 DateTime     @updatedAt
+  departments               Department[]
+  users                     User[]
+  projects                  Project[]
+  vendors                   Vendor[]
+  orders                    Order[]
+  invoices                  Invoice[]
+  documents                 Document[]
+  approvals                 Approval[]
+  notifications             Notification[]
+  auditLogs                 AuditLog[]
+}
+
+model Department {
+  id                 String       @id @default(cuid())
+  companyId          String
+  name               String
+  code               String
+  parentDepartmentId String?
+  managerUserId      String?
+  sortOrder          Int          @default(0)
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+  company            Company      @relation(fields: [companyId], references: [id])
+  parentDepartment   Department?  @relation("DepartmentHierarchy", fields: [parentDepartmentId], references: [id])
+  childDepartments   Department[] @relation("DepartmentHierarchy")
+  users              User[]
+  projects           Project[]
+  orders             Order[]
+  documents          Document[]
+
+  @@unique([companyId, code])
+  @@index([companyId])
+}
+
+model User {
+  id             String          @id @default(cuid())
+  companyId      String
+  departmentId   String?
+  name           String
+  email          String
+  passwordHash   String?
+  role           UserRole
+  phone          String?
+  status         String          @default("active")
+  lastLoginAt    DateTime?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  company        Company         @relation(fields: [companyId], references: [id])
+  department     Department?     @relation(fields: [departmentId], references: [id])
+  projectMembers ProjectMember[]
+  approvals      Approval[]      @relation("ApprovalRequester")
+  auditLogs      AuditLog[]
+
+  @@unique([companyId, email])
+  @@index([companyId])
+  @@index([departmentId])
+}
+
+model Project {
+  id                         String              @id @default(cuid())
+  companyId                  String
+  departmentId               String
+  projectCode                String
+  name                       String
+  clientName                 String
+  clientAddress              String?
+  siteAddress                String
+  constructionType           String?
+  projectStatus              ProjectStatus
+  startDate                  DateTime?
+  endDate                    DateTime?
+  contractAmount             Decimal             @db.Decimal(14, 0)
+  managerUserId              String?
+  isJv                       Boolean             @default(false)
+  jvName                     String?
+  jvRepresentativeCompany    String?
+  memo                       String?
+  createdAt                  DateTime            @default(now())
+  updatedAt                  DateTime            @updatedAt
+  company                    Company             @relation(fields: [companyId], references: [id])
+  department                 Department          @relation(fields: [departmentId], references: [id])
+  members                    ProjectMember[]
+  schedules                  ScheduleTask[]
+  drawings                   Drawing[]
+  photos                     Photo[]
+  documents                  Document[]
+  dailyReports               DailyReport[]
+  tasks                      Task[]
+  orders                     Order[]
+  invoices                   Invoice[]
+  paymentAssessments         PaymentAssessment[]
+
+  @@unique([companyId, projectCode])
+  @@index([companyId])
+  @@index([departmentId])
+  @@index([projectStatus])
+}
+
+model ProjectMember {
+  id        String   @id @default(cuid())
+  companyId String
+  projectId String
+  userId    String
+  role      String
+  createdAt DateTime @default(now())
+  project   Project  @relation(fields: [projectId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@unique([projectId, userId])
+  @@index([companyId])
+}
+
+model Vendor {
+  id                          String               @id @default(cuid())
+  companyId                   String
+  vendorCode                  String
+  name                        String
+  nameKana                    String?
+  corporateNumber             String?
+  invoiceRegistrationNumber   String?
+  constructionLicenseNumber   String?
+  licenseType                 String?
+  postalCode                  String?
+  address                     String?
+  phone                       String?
+  email                       String?
+  mainContactName             String?
+  tradeStatus                 VendorTradeStatus
+  paymentTerms                String?
+  memo                        String?
+  createdAt                   DateTime             @default(now())
+  updatedAt                   DateTime             @updatedAt
+  company                     Company              @relation(fields: [companyId], references: [id])
+  contacts                    VendorContact[]
+  bankAccounts                VendorBankAccount[]
+  vendorDocuments             VendorDocument[]
+  orders                      Order[]
+  invoices                    Invoice[]
+  payments                    Payment[]
+  paymentAssessments          PaymentAssessment[]
+
+  @@unique([companyId, vendorCode])
+  @@index([companyId])
+  @@index([tradeStatus])
+}
+
+model VendorContact {
+  id        String   @id @default(cuid())
+  companyId String
+  vendorId  String
+  name      String
+  email     String?
+  phone     String?
+  role      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  vendor    Vendor   @relation(fields: [vendorId], references: [id])
+
+  @@index([companyId])
+  @@index([vendorId])
+}
+
+model VendorBankAccount {
+  id            String   @id @default(cuid())
+  companyId     String
+  vendorId      String
+  bankName      String
+  branchName    String
+  accountType   String
+  accountNumber String
+  accountHolder String
+  isDefault     Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  vendor        Vendor   @relation(fields: [vendorId], references: [id])
+
+  @@index([companyId])
+  @@index([vendorId])
+}
+
+model VendorDocument {
+  id          String         @id @default(cuid())
+  companyId   String
+  vendorId    String
+  documentType String
+  fileUrl      String
+  fileName     String
+  expiresAt    DateTime?
+  status       DocumentStatus @default(DRAFT)
+  uploadedAt   DateTime       @default(now())
+  vendor       Vendor         @relation(fields: [vendorId], references: [id])
+
+  @@index([companyId])
+  @@index([vendorId])
+}
+
+model Order {
+  id                  String              @id @default(cuid())
+  companyId           String
+  projectId           String
+  vendorId            String
+  departmentId         String
+  orderNumber         String
+  tradeType           String
+  orderTitle          String
+  orderAmountExTax    Decimal             @db.Decimal(14, 0)
+  taxRate             Decimal             @db.Decimal(5, 2)
+  taxAmount           Decimal             @db.Decimal(14, 0)
+  orderAmountWithTax  Decimal             @db.Decimal(14, 0)
+  orderDate           DateTime?
+  startDate           DateTime?
+  endDate             DateTime?
+  paymentTerms        String?
+  status              OrderStatus
+  createdBy           String?
+  approvedBy          String?
+  approvedAt          DateTime?
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+  company             Company             @relation(fields: [companyId], references: [id])
+  project             Project             @relation(fields: [projectId], references: [id])
+  vendor              Vendor              @relation(fields: [vendorId], references: [id])
+  department          Department          @relation(fields: [departmentId], references: [id])
+  documents           OrderDocument[]
+  invoices            Invoice[]
+  paymentAssessments  PaymentAssessment[]
+
+  @@unique([companyId, orderNumber])
+  @@index([companyId])
+  @@index([projectId])
+  @@index([vendorId])
+  @@index([departmentId])
+  @@index([status])
+}
+
+model OrderDocument {
+  id           String   @id @default(cuid())
+  companyId    String
+  orderId      String
+  documentType String
+  fileUrl      String
+  fileName     String
+  uploadedBy   String?
+  uploadedAt   DateTime @default(now())
+  order        Order    @relation(fields: [orderId], references: [id])
+
+  @@index([companyId])
+  @@index([orderId])
+}
+
+model Invoice {
+  id                        String          @id @default(cuid())
+  companyId                 String
+  projectId                 String
+  vendorId                  String
+  orderId                   String
+  invoiceNumber             String
+  invoiceDate               DateTime?
+  receivedDate              DateTime?
+  paymentDueDate            DateTime?
+  amountExTax               Decimal         @db.Decimal(14, 0)
+  taxAmount                 Decimal         @db.Decimal(14, 0)
+  amountWithTax             Decimal         @db.Decimal(14, 0)
+  withholdingAmount         Decimal         @db.Decimal(14, 0) @default(0)
+  offsetAmount              Decimal         @db.Decimal(14, 0) @default(0)
+  payableAmount             Decimal         @db.Decimal(14, 0)
+  invoiceRegistrationNumber String?
+  status                    InvoiceStatus
+  createdAt                 DateTime        @default(now())
+  updatedAt                 DateTime        @updatedAt
+  company                   Company         @relation(fields: [companyId], references: [id])
+  project                   Project         @relation(fields: [projectId], references: [id])
+  vendor                    Vendor          @relation(fields: [vendorId], references: [id])
+  order                     Order           @relation(fields: [orderId], references: [id])
+  payments                  Payment[]
+
+  @@unique([companyId, invoiceNumber])
+  @@index([companyId])
+  @@index([projectId])
+  @@index([vendorId])
+  @@index([orderId])
+  @@index([status])
+  @@index([paymentDueDate])
+}
+
+model Payment {
+  id            String        @id @default(cuid())
+  companyId     String
+  invoiceId     String
+  vendorId      String
+  paymentBatchId String?
+  paymentDate   DateTime?
+  amount        Decimal       @db.Decimal(14, 0)
+  method        String?
+  status        String
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  invoice       Invoice       @relation(fields: [invoiceId], references: [id])
+  vendor        Vendor        @relation(fields: [vendorId], references: [id])
+  paymentBatch  PaymentBatch? @relation(fields: [paymentBatchId], references: [id])
+
+  @@index([companyId])
+  @@index([invoiceId])
+  @@index([vendorId])
+  @@index([paymentBatchId])
+}
+
+model PaymentBatch {
+  id              String    @id @default(cuid())
+  companyId       String
+  targetYearMonth String
+  title           String
+  status          String
+  closedAt        DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  payments        Payment[]
+
+  @@index([companyId])
+  @@index([targetYearMonth])
+}
+
+model PaymentAssessment {
+  id                  String                  @id @default(cuid())
+  companyId           String
+  projectId           String
+  vendorId            String
+  orderId             String
+  targetYearMonth     String
+  previousPaidAmount  Decimal                 @db.Decimal(14, 0)
+  progressAmount      Decimal                 @db.Decimal(14, 0)
+  assessedAmount      Decimal                 @db.Decimal(14, 0)
+  deductionAmount     Decimal                 @db.Decimal(14, 0) @default(0)
+  scheduledPayAmount  Decimal                 @db.Decimal(14, 0)
+  balanceAmount       Decimal                 @db.Decimal(14, 0)
+  comment             String?
+  status              AssessmentStatus
+  closedAt            DateTime?
+  createdAt           DateTime                @default(now())
+  updatedAt           DateTime                @updatedAt
+  project             Project                 @relation(fields: [projectId], references: [id])
+  vendor              Vendor                  @relation(fields: [vendorId], references: [id])
+  order               Order                   @relation(fields: [orderId], references: [id])
+  lines               PaymentAssessmentLine[]
+
+  @@index([companyId])
+  @@index([projectId])
+  @@index([vendorId])
+  @@index([orderId])
+  @@index([targetYearMonth])
+  @@index([status])
+}
+
+model PaymentAssessmentLine {
+  id                  String            @id @default(cuid())
+  companyId           String
+  paymentAssessmentId String
+  lineTitle           String
+  amount              Decimal           @db.Decimal(14, 0)
+  note                String?
+  createdAt           DateTime          @default(now())
+  assessment          PaymentAssessment @relation(fields: [paymentAssessmentId], references: [id])
+
+  @@index([companyId])
+  @@index([paymentAssessmentId])
+}
+
+model PaymentSummary {
+  id              String   @id @default(cuid())
+  companyId       String
+  vendorId        String
+  targetYearMonth String
+  invoiceCount    Int
+  projectCount    Int
+  amountExTax     Decimal  @db.Decimal(14, 0)
+  taxAmount       Decimal  @db.Decimal(14, 0)
+  amountWithTax   Decimal  @db.Decimal(14, 0)
+  deductionAmount Decimal  @db.Decimal(14, 0)
+  scheduledAmount Decimal  @db.Decimal(14, 0)
+  paidAmount      Decimal  @db.Decimal(14, 0)
+  unpaidAmount    Decimal  @db.Decimal(14, 0)
+  status          String
+  closedAt        DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([companyId, vendorId, targetYearMonth])
+  @@index([companyId])
+  @@index([vendorId])
+  @@index([targetYearMonth])
+}
+
+model ScheduleTask {
+  id             String   @id @default(cuid())
+  companyId      String
+  projectId      String
+  name           String
+  startDate      DateTime
+  endDate        DateTime
+  progressRate   Int      @default(0)
+  ownerUserId    String?
+  vendorId       String?
+  status         String
+  memo           String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  project        Project  @relation(fields: [projectId], references: [id])
+
+  @@index([companyId])
+  @@index([projectId])
+}
+
+model Drawing {
+  id             String           @id @default(cuid())
+  companyId      String
+  projectId      String
+  drawingNumber  String
+  name           String
+  category       String
+  currentVersion Int              @default(1)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  project        Project          @relation(fields: [projectId], references: [id])
+  versions       DrawingVersion[]
+
+  @@index([companyId])
+  @@index([projectId])
+}
+
+model DrawingVersion {
+  id             String   @id @default(cuid())
+  companyId      String
+  drawingId      String
+  version        Int
+  changeReason   String?
+  fileUrl        String
+  fileName       String
+  uploadedBy     String?
+  uploadedAt     DateTime @default(now())
+  drawing        Drawing  @relation(fields: [drawingId], references: [id])
+
+  @@unique([drawingId, version])
+  @@index([companyId])
+}
+
+model Photo {
+  id             String   @id @default(cuid())
+  companyId      String
+  projectId      String
+  scheduleTaskId String?
+  vendorId       String?
+  category       String
+  fileUrl        String
+  thumbnailUrl   String?
+  takenAt        DateTime?
+  gpsLat         Decimal? @db.Decimal(10, 7)
+  gpsLng         Decimal? @db.Decimal(10, 7)
+  blackboardJson Json?
+  comment        String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  project        Project  @relation(fields: [projectId], references: [id])
+
+  @@index([companyId])
+  @@index([projectId])
+  @@index([vendorId])
+}
+
+model Document {
+  id             String            @id @default(cuid())
+  companyId      String
+  projectId      String?
+  vendorId       String?
+  departmentId   String?
+  documentType   String
+  title          String
+  status         DocumentStatus
+  latestVersion  Int               @default(1)
+  retentionUntil DateTime?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  company        Company           @relation(fields: [companyId], references: [id])
+  project        Project?          @relation(fields: [projectId], references: [id])
+  department     Department?       @relation(fields: [departmentId], references: [id])
+  versions       DocumentVersion[]
+
+  @@index([companyId])
+  @@index([projectId])
+  @@index([vendorId])
+  @@index([departmentId])
+  @@index([status])
+}
+
+model DocumentVersion {
+  id          String   @id @default(cuid())
+  companyId   String
+  documentId  String
+  version     Int
+  fileUrl     String
+  fileName    String
+  fileSize    Int?
+  mimeType    String?
+  uploadedBy  String?
+  uploadedAt  DateTime @default(now())
+  document    Document @relation(fields: [documentId], references: [id])
+
+  @@unique([documentId, version])
+  @@index([companyId])
+}
+
+model DailyReport {
+  id             String   @id @default(cuid())
+  companyId      String
+  projectId      String
+  reportDate     DateTime
+  weather        String?
+  temperature    String?
+  workContent    String
+  workerCount    Int
+  vendorNames    String?
+  materials      String?
+  machines       String?
+  safetyNotes    String?
+  issues         String?
+  tomorrowPlan   String?
+  createdBy      String?
+  approvedBy     String?
+  status         String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  project        Project  @relation(fields: [projectId], references: [id])
+
+  @@index([companyId])
+  @@index([projectId])
+  @@index([reportDate])
+}
+
+model Task {
+  id             String           @id @default(cuid())
+  companyId      String
+  projectId      String
+  title          String
+  description    String?
+  assigneeUserId String?
+  dueDate        DateTime?
+  status         TaskStatus
+  drawingId      String?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  project        Project          @relation(fields: [projectId], references: [id])
+  comments       TaskComment[]
+  attachments    TaskAttachment[]
+
+  @@index([companyId])
+  @@index([projectId])
+  @@index([status])
+}
+
+model TaskComment {
+  id        String   @id @default(cuid())
+  companyId String
+  taskId    String
+  userId    String?
+  body      String
+  createdAt DateTime @default(now())
+  task      Task     @relation(fields: [taskId], references: [id])
+
+  @@index([companyId])
+  @@index([taskId])
+}
+
+model TaskAttachment {
+  id        String   @id @default(cuid())
+  companyId String
+  taskId    String
+  fileUrl   String
+  fileName  String
+  createdAt DateTime @default(now())
+  task      Task     @relation(fields: [taskId], references: [id])
+
+  @@index([companyId])
+  @@index([taskId])
+}
+
+model Approval {
+  id            String         @id @default(cuid())
+  companyId     String
+  requestedById String?
+  targetType    String
+  targetId      String
+  title         String
+  status        ApprovalStatus
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  company       Company        @relation(fields: [companyId], references: [id])
+  requestedBy   User?          @relation("ApprovalRequester", fields: [requestedById], references: [id])
+  steps         ApprovalStep[]
+
+  @@index([companyId])
+  @@index([targetType, targetId])
+  @@index([status])
+}
+
+model ApprovalStep {
+  id          String   @id @default(cuid())
+  companyId   String
+  approvalId  String
+  stepOrder   Int
+  role        UserRole?
+  approverId  String?
+  status      String
+  comment     String?
+  actedAt     DateTime?
+  createdAt   DateTime @default(now())
+  approval    Approval @relation(fields: [approvalId], references: [id])
+
+  @@index([companyId])
+  @@index([approvalId])
+}
+
+model Notification {
+  id         String   @id @default(cuid())
+  companyId  String
+  userId     String?
+  title      String
+  body       String
+  targetType String?
+  targetId   String?
+  readAt     DateTime?
+  createdAt  DateTime @default(now())
+  company    Company  @relation(fields: [companyId], references: [id])
+
+  @@index([companyId])
+  @@index([userId])
+  @@index([readAt])
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  companyId  String
+  userId     String?
+  action     String
+  targetType String
+  targetId   String
+  beforeJson Json?
+  afterJson  Json?
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+  company    Company  @relation(fields: [companyId], references: [id])
+  user       User?    @relation(fields: [userId], references: [id])
+
+  @@index([companyId])
+  @@index([userId])
+  @@index([targetType, targetId])
+  @@index([createdAt])
+}
