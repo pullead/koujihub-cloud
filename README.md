@@ -62,6 +62,24 @@ Docker を使用しない場合は、`.env.example` と同じ接続情報で Pos
 npm run dev
 ```
 
+## クラウドデプロイ
+
+GitHub へ push した後、Vercel で `pullead/koujihub-cloud` を Import してデプロイできます。
+
+推奨構成:
+
+- アプリ: Vercel
+- データベース: Neon Postgres
+- ファイル保存: Vercel Blob / S3 / R2 / Supabase Storage へ後続移行
+
+Vercel には以下の環境変数を設定してください。
+
+```text
+DATABASE_URL=Neon の PostgreSQL connection string
+```
+
+詳しい手順は [DEPLOYMENT.md](./DEPLOYMENT.md) を参照してください。
+
 ## よく使うコマンド
 
 ```bash
@@ -70,6 +88,7 @@ npm run lint
 npm run build
 npm run db:generate
 npm run db:push
+npm run db:deploy
 npm run db:seed
 ```
 
