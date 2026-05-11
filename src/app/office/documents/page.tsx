@@ -44,7 +44,7 @@ export default async function DocumentsPage({ searchParams }: { searchParams: Pr
         <div className="section-title">
           <div>
             <h3>帳票アップロード</h3>
-            <p>ファイル実体をローカル保存し、DocumentVersion v1 として Prisma に登録します。</p>
+            <p>ファイル実体を Blob 保存し、DocumentVersion v1 として Prisma に登録します。</p>
           </div>
         </div>
         <form action={createDocumentAction} className="form-grid" style={{ marginTop: 14 }}>

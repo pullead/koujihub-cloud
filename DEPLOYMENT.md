@@ -38,6 +38,7 @@ Vercel Project Settings の Environment Variables に以下を追加します。
 
 ```text
 DATABASE_URL=Neon の connection string
+BLOB_READ_WRITE_TOKEN=Vercel Blob の Read Write Token
 ```
 
 Production / Preview / Development のすべてに入れておくと、Preview Deploy でも Prisma 読み書きを確認できます。
@@ -89,16 +90,9 @@ Vercel は GitHub の `main` ブランチへの push を検知して自動デプ
 
 ### ファイルアップロード
 
-現在の `src/lib/file-storage.ts` はローカル保存用です。
+現在の `src/lib/file-storage.ts` は、`BLOB_READ_WRITE_TOKEN` がある場合は Vercel Blob に保存します。
 
-Vercel 本番環境では、アップロードした帳票ファイルを永続保存するために外部ストレージが必要です。
-
-次のいずれかに置き換える想定です。
-
-- Vercel Blob
-- S3
-- Cloudflare R2
-- Supabase Storage
+ローカル開発などで `BLOB_READ_WRITE_TOKEN` が未設定の場合だけ、`public/uploads/documents` に保存します。
 
 ### データベース初期化
 

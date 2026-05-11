@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { put } from "@vercel/blob";
 
 const maxUploadSize = 20 * 1024 * 1024;
 
@@ -30,9 +31,23 @@ export async function saveDocumentUpload(file: File) {
     throw new Error("Upload exceeds 20MB limit");
   }
 
-  const uploadDir = path.join(process.cwd(), "public", "uploads", "documents");
   const extension = extensionFromName(file.name);
   const storedName = `${safeBaseName(file.name)}-${randomUUID()}${extension}`;
+
+  if (process.env.BLOB_READ_WRITE_TOKEN) {
+    const blob = await put(`documents/${storedName}`, file, {
+      access: "public",
+    });
+
+    return {
+      fileName: file.name,
+      fileSize: file.size,
+      fileUrl: blob.url,
+      mimeType: file.type || "application/octet-stream",
+    };
+  }
+
+  const uploadDir = path.join(process.cwd(), "public", "uploads", "documents");
   const bytes = Buffer.from(await file.arrayBuffer());
 
   await mkdir(uploadDir, { recursive: true });
